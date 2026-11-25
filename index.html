@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a">
+  <title>Professional Calculator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #0f172a;
+      --panel: #1e293b;
+      --display: #0b1220;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --danger: #dc2626;
+      --key: #334155;
+      --key-hover: #475569;
+      --line: #475569;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at top, #1e3a5f 0%, var(--page) 58%);
+      color: var(--text);
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    .app {
+      width: min(100%, 440px);
+      padding: 22px;
+      border: 1px solid rgba(148, 163, 184, .2);
+      border-radius: 22px;
+      background: rgba(30, 41, 59, .97);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .4);
+    }
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    h1 { margin: 0; font-size: 1.15rem; letter-spacing: .02em; }
+    .subtitle { margin: 4px 0 0; color: var(--muted); font-size: .78rem; }
+
+    .display {
+      min-height: 116px;
+      padding: 17px;
+      border: 1px solid rgba(148, 163, 184, .16);
+      border-radius: 15px;
+      background: var(--display);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      gap: 9px;
+      margin-bottom: 17px;
+    }
+
+    .expression {
+      min-height: 22px;
+      color: var(--muted);
+      font-size: .95rem;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    .result {
+      min-height: 42px;
+      font-size: clamp(1.8rem, 8vw, 2.5rem);
+      font-weight: 600;
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    button {
+      min-height: 58px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      background: var(--key);
+      color: var(--text);
+      font: inherit;
+      font-size: 1.15rem;
+      cursor: pointer;
+      transition: background .15s ease, transform .12s ease, border-color .15s ease;
+      touch-action: manipulation;
+    }
+
+    button:hover { background: var(--key-hover); }
+    button:active { transform: scale(.97); }
+    button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+    button.operator { color: #bfdbfe; background: #1e40af; }
+    button.operator:hover { background: #1d4ed8; }
+    button.action { color: #fecaca; background: #7f1d1d; }
+    button.action:hover { background: var(--danger); }
+    button.equals { grid-column: span 4; background: var(--accent); font-size: 1.3rem; font-weight: 700; }
+    button.equals:hover { background: var(--accent-hover); }
+
+    .history-section {
+      margin-top: 20px;
+      border-top: 1px solid var(--line);
+      padding-top: 15px;
+    }
+
+    .history-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 9px;
+    }
+
+    .history-heading h2 { margin: 0; font-size: .9rem; }
+    .small-button { min-height: 32px; padding: 5px 10px; font-size: .78rem; }
+    .history-list { display: grid; gap: 7px; max-height: 180px; overflow: auto; padding: 0; margin: 0; list-style: none; }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 11px;
+      text-align: left;
+      font-size: .85rem;
+      background: rgba(15, 23, 42, .65);
+    }
+    .history-expression { color: var(--muted); overflow-wrap: anywhere; }
+    .history-value { color: #bfdbfe; font-weight: 700; white-space: nowrap; }
+    .empty-history { color: var(--muted); font-size: .82rem; text-align: center; padding: 8px; }
+    .status { min-height: 18px; margin: 10px 0 0; color: #fca5a5; font-size: .8rem; text-align: center; }
+    .test-panel { display: none; margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font: .78rem/1.5 Consolas, monospace; white-space: pre-wrap; }
+    body.test-mode .test-panel { display: block; }
+
+    @media (max-width: 420px) {
+      body { padding: 12px; }
+      .app { padding: 15px; }
+      .keypad { gap: 8px; }
+      button { min-height: 54px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" aria-label="Calculator">
+    <header class="app-header">
+      <div>
+        <h1>Calculator</h1>
+        <p class="subtitle">Clear, simple and reliable calculations</p>
+      </div>
+    </header>
+
+    <section class="display" aria-live="polite" aria-atomic="true">
+      <div id="expression" class="expression"></div>
+      <div id="result" class="result">0</div>
+    </section>
+
+    <section class="keypad" aria-label="Calculator keypad">
+      <button class="action" type="button" data-action="clear" aria-label="Clear all">AC</button>
+      <button type="button" data-action="backspace" aria-label="Backspace">⌫</button>
+      <button type="button" data-value="(" aria-label="Open parenthesis">(</button>
+      <button type="button" data-value=")" aria-label="Close parenthesis">)</button>
+
+      <button type="button" data-value="7">7</button>
+      <button type="button" data-value="8">8</button>
+      <button type="button" data-value="9">9</button>
+      <button class="operator" type="button" data-value="/">÷</button>
+
+      <button type="button" data-value="4">4</button>
+      <button type="button" data-value="5">5</button>
+      <button type="button" data-value="6">6</button>
+      <button class="operator" type="button" data-value="*">×</button>
+
+      <button type="button" data-value="1">1</button>
+      <button type="button" data-value="2">2</button>
+      <button type="button" data-value="3">3</button>
+      <button class="operator" type="button" data-value="-">−</button>
+
+      <button type="button" data-value="0">0</button>
+      <button type="button" data-value=".">.</button>
+      <button type="button" data-value="%">%</button>
+      <button class="operator" type="button" data-value="+">+</button>
+
+      <button type="button" data-action="sign">±</button>
+      <button type="button" data-action="clear-entry">CE</button>
+      <button class="equals" type="button" data-action="calculate">=</button>
+    </section>
+
+    <p id="status" class="status" role="status"></p>
+
+    <section class="history-section" aria-labelledby="history-title">
+      <div class="history-heading">
+        <h2 id="history-title">Calculation history</h2>
+        <button class="small-button" type="button" data-action="clear-history">Clear history</button>
+      </div>
+      <ul id="history-list" class="history-list">
+        <li class="empty-history">Your calculations will appear here.</li>
+      </ul>
+    </section>
+
+    <pre id="test-panel" class="test-panel" aria-live="polite"></pre>
+  </main>
+
+  <script>
+  "use strict";
+
+  class ExpressionParser {
+    constructor(source) {
+      this.source = String(source).replace(/[×x]/g, "*").replace(/÷/g, "/").replace(/−/g, "-").replace(/\s+/g, "");
+      this.position = 0;
+    }
+
+    peek() { return this.source[this.position]; }
+
+    parse() {
+      if (!this.source || this.source.length > 250) throw new Error("Enter a valid expression.");
+      const value = this.parseExpression();
+      if (this.position !== this.source.length) throw new Error("Unexpected character.");
+      if (!Number.isFinite(value)) throw new Error("The result is outside the supported range.");
+      return value;
+    }
+
+    parseExpression() {
+      let value = this.parseTerm();
+      while (this.peek() === "+" || this.peek() === "-") {
+        const operator = this.source[this.position++];
+        const right = this.parseTerm();
+        value = operator === "+" ? value + right : value - right;
+      }
+      return value;
+    }
+
+    parseTerm() {
+      let value = this.parseUnary();
+      while (this.peek() === "*" || this.peek() === "/") {
+        const operator = this.source[this.position++];
+        const right = this.parseUnary();
+        if (operator === "/") {
+          if (right === 0) throw new Error("Cannot divide by zero.");
+          value /= right;
+        } else {
+          value *= right;
+        }
+      }
+      return value;
+    }
+
+    parseUnary() {
+      if (this.peek() === "+") {
+        this.position++;
+        return this.parseUnary();
+      }
+      if (this.peek() === "-") {
+        this.position++;
+        return -this.parseUnary();
+      }
+      return this.parsePostfix();
+    }
+
+    parsePostfix() {
+      let value = this.parsePrimary();
+      while (this.peek() === "%") {
+        this.position++;
+        value /= 100;
+      }
+      return value;
+    }
+
+    parsePrimary() {
+      if (this.peek() === "(") {
+        this.position++;
+        const value = this.parseExpression();
+        if (this.peek() !== ")") throw new Error("Missing closing parenthesis.");
+        this.position++;
+        return value;
+      }
+
+      const remaining = this.source.slice(this.position);
+      const match = remaining.match(/^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/);
+      if (!match) throw new Error("Expected a number.");
+      this.position += match[0].length;
+      const value = Number(match[0]);
+      if (!Number.isFinite(value)) throw new Error("Invalid number.");
+      return value;
+    }
+  }
+
+  class CalculatorApp {
+    constructor() {
+      this.expression = "";
+      this.justCalculated = false;
+      this.history = this.loadHistory();
+      this.expressionElement = document.getElementById("expression");
+      this.resultElement = document.getElementById("result");
+      this.statusElement = document.getElementById("status");
+      this.historyElement = document.getElementById("history-list");
+      this.testElement = document.getElementById("test-panel");
+      document.querySelector(".keypad").addEventListener("click", (event) => this.handleButton(event));
+      document.querySelector("[data-action='clear-history']").addEventListener("click", () => this.clearHistory());
+      document.addEventListener("keydown", (event) => this.handleKeyboard(event));
+      this.renderHistory();
+      this.render();
+      if (new URLSearchParams(window.location.search).get("test") === "1") {
+        document.body.classList.add("test-mode");
+        this.runTests();
+      }
+    }
+
+    loadHistory() {
+      try {
+        const saved = JSON.parse(localStorage.getItem("professionalCalculatorHistory") || "[]");
+        return Array.isArray(saved) ? saved.filter(item => item && typeof item.expression === "string" && typeof item.result === "string").slice(0, 30) : [];
+      } catch (_) {
+        return [];
+      }
+    }
+
+    saveHistory() {
+      try {
+        localStorage.setItem("professionalCalculatorHistory", JSON.stringify(this.history.slice(0, 30)));
+      } catch (_) {
+        this.setStatus("History could not be saved in this browser.");
+      }
+    }
+
+    setStatus(message = "") { this.statusElement.textContent = message; }
+
+    render() {
+      this.expressionElement.textContent = this.expression;
+      if (!this.expression) this.resultElement.textContent = "0";
+      else this.resultElement.textContent = this.expression;
+    }
+
+    append(value) {
+      this.setStatus("");
+      if (this.justCalculated && /[0-9.(]/.test(value)) this.expression = "";
+      this.justCalculated = false;
+      if (this.expression.length >= 250) {
+        this.setStatus("Expression is too long.");
+        return;
+      }
+      this.expression += value;
+      this.render();
+    }
+
+    clear() {
+      this.expression = "";
+      this.justCalculated = false;
+      this.setStatus("");
+      this.render();
+    }
+
+    clearEntry() {
+      if (!this.expression) return;
+      const match = this.expression.match(/(?:\d+(?:\.\d*)?|\.\d+)%?$/);
+      this.expression = match ? this.expression.slice(0, -match[0].length) : this.expression.slice(0, -1);
+      this.justCalculated = false;
+      this.setStatus("");
+      this.render();
+    }
+
+    backspace() {
+      if (this.justCalculated) return this.clear();
+      this.expression = this.expression.slice(0, -1);
+      this.setStatus("");
+      this.render();
+    }
+
+    toggleSign() {
+      if (!this.expression) {
+        this.expression = "-";
+      } else {
+        const match = this.expression.match(/(\d+(?:\.\d*)?|\.\d+)%?$/);
+        if (!match) {
+          this.expression += "-";
+        } else {
+          const start = match.index;
+          const before = this.expression.slice(0, start);
+          const number = match[0];
+          const prefix = before.endsWith("-") && (before.length === 1 || /[+*/(]$/.test(before.slice(0, -1)));
+          this.expression = prefix ? before.slice(0, -1) + number : before + "(-" + number.replace(/%$/, "") + ")" + (number.endsWith("%") ? "%" : "");
+        }
+      }
+      this.justCalculated = false;
+      this.render();
+    }
+
+    calculate() {
+      if (!this.expression.trim()) return;
+      try {
+        const original = this.expression;
+        const result = new ExpressionParser(original).parse();
+        const formatted = Number.isInteger(result) ? String(result) : String(Number(result.toPrecision(12)));
+        this.history.unshift({ expression: original, result: formatted });
+        this.history = this.history.slice(0, 30);
+        this.saveHistory();
+        this.renderHistory();
+        this.expression = formatted;
+        this.justCalculated = true;
+        this.setStatus("");
+        this.render();
+      } catch (error) {
+        this.setStatus(error && error.message ? error.message : "Invalid expression.");
+      }
+    }
+
+    renderHistory() {
+      this.historyElement.replaceChildren();
+      if (this.history.length === 0) {
+        const empty = document.createElement("li");
+        empty.className = "empty-history";
+        empty.textContent = "Your calculations will appear here.";
+        this.historyElement.appendChild(empty);
+        return;
+      }
+      this.history.forEach((item) => {
+        const li = document.createElement("li");
+        const button = document.createElement("button");
+        const expression = document.createElement("span");
+        const result = document.createElement("span");
+        button.type = "button";
+        button.className = "history-item";
+        expression.className = "history-expression";
+        result.className = "history-value";
+        expression.textContent = item.expression;
+        result.textContent = item.result;
+        button.append(expression, result);
+        button.addEventListener("click", () => {
+          this.expression = item.result;
+          this.justCalculated = true;
+          this.setStatus("");
+          this.render();
+        });
+        li.appendChild(button);
+        this.historyElement.appendChild(li);
+      });
+    }
+
+    clearHistory() {
+      this.history = [];
+      this.saveHistory();
+      this.renderHistory();
+      this.setStatus("History cleared.");
+    }
+
+    handleButton(event) {
+      const button = event.target.closest("button");
+      if (!button) return;
+      const action = button.dataset.action;
+      if (action === "clear") return this.clear();
+      if (action === "clear-entry") return this.clearEntry();
+      if (action === "backspace") return this.backspace();
+      if (action === "sign") return this.toggleSign();
+      if (action === "calculate") return this.calculate();
+      if (button.dataset.value !== undefined) this.append(button.dataset.value);
+    }
+
+    handleKeyboard(event) {
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      const key = event.key;
+      if (/^[0-9.+\-*/()%]$/.test(key)) {
+        event.preventDefault();
+        this.append(key);
+      } else if (key === "Enter" || key === "=") {
+        event.preventDefault();
+        this.calculate();
+      } else if (key === "Backspace") {
+        event.preventDefault();
+        this.backspace();
+      } else if (key === "Escape") {
+        event.preventDefault();
+        this.clear();
+      }
+    }
+
+    runTests() {
+      const cases = [
+        ["2+3", 5],
+        ["2+3*4", 14],
+        ["(2+3)*4", 20],
+        ["-5+2", -3],
+        ["8/2", 4],
+        ["50%", 0.5],
+        ["200*10%", 20],
+        ["0", 0],
+        ["1.5+2.25", 3.75],
+        ["-(2+3)", -5]
+      ];
+      const lines = [];
+      let passed = 0;
+      for (const [source, expected] of cases) {
+        try {
+          const actual = new ExpressionParser(source).parse();
+          const ok = Math.abs(actual - expected) < 1e-10;
+          if (ok) passed++;
+          lines.push(`${ok ? "PASS" : "FAIL"}: ${source} = ${actual}; expected ${expected}`);
+        } catch (error) {
+          lines.push(`FAIL: ${source}: ${error.message}`);
+        }
+      }
+      let divisionByZeroRejected = false;
+      try { new ExpressionParser("5/0").parse(); } catch (_) { divisionByZeroRejected = true; }
+      if (divisionByZeroRejected) passed++;
+      lines.push(`${divisionByZeroRejected ? "PASS" : "FAIL"}: division by zero is rejected`);
+      lines.unshift(`Tests passed: ${passed}/${cases.length + 1}\n`);
+      this.testElement.textContent = lines.join("\n");
+    }
+  }
+
+  const calculator = new CalculatorApp();
+  </script>
+</body>
+</html>
